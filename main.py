@@ -1,4 +1,5 @@
 # main.py（以下のコードを貼り付け）
+import json
 import os
 from datetime import datetime, timedelta
 
@@ -78,10 +79,21 @@ def create_calendar_event(service, card):
         print(f"エラー: {str(e)}")
 
 
+def get_google_credentials():
+    """GitHub Secretsから認証情報を取得"""
+    credentials_json = os.getenv("GOOGLE_CREDENTIALS")
+    if not credentials_json:
+        raise ValueError("GOOGLE_CREDENTIALSが設定されていません")
+
+    # JSON文字列をファイルとして扱う
+    credentials_info = json.loads(credentials_json)
+    flow = InstalledAppFlow.from_client_config(credentials_info, SCOPES)
+    return flow.run_local_server(port=8080)
+
+
 def main():
     """メイン処理"""
-    flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
-    creds = flow.run_local_server(port=8080)
+    creds = get_google_credentials()
     service = build("calendar", "v3", credentials=creds)
 
     for card in get_trello_cards():
