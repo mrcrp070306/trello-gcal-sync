@@ -80,15 +80,25 @@ def create_calendar_event(service, card):
 
 
 def get_google_credentials():
-    """GitHub Secretsから認証情報を取得"""
+    """オフライン認証フローを使用"""
     credentials_json = os.getenv("GOOGLE_CREDENTIALS")
     if not credentials_json:
         raise ValueError("GOOGLE_CREDENTIALSが設定されていません")
 
-    # JSON文字列をファイルとして扱う
     credentials_info = json.loads(credentials_json)
-    flow = InstalledAppFlow.from_client_config(credentials_info, SCOPES)
-    return flow.run_local_server(port=8080)
+    flow = InstalledAppFlow.from_client_config(
+        credentials_info,
+        SCOPES,
+        redirect_uri="urn:ietf:wg:oauth:2.0:oob",  # ブラウザ不要のリダイレクトURI
+    )
+
+    # 認証URLを表示
+    auth_url, _ = flow.authorization_url(prompt="consent")
+    print(f"以下のURLにアクセスして認証コードを取得してください: {auth_url}")
+
+    # 認証コードを入力
+    auth_code = input("認証コードを入力: ")
+    return flow.fetch_token(code=auth_code)
 
 
 def main():
