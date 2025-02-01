@@ -1,5 +1,5 @@
 """
-TrelloのタスクをGoogleカレンダーに自動同期するスクリプト
+TrelloのタスクをGoogleカレンダーに自動同期するスクリプト（ボード名対応版）
 サービスアカウントを使用した完全自動化版
 """
 
@@ -50,6 +50,21 @@ def get_google_service():
 # ---------------------------
 # Trello連携処理
 # ---------------------------
+def get_board_name(board_id):
+    """ボードIDからボード名を取得"""
+    try:
+        url = f"https://api.trello.com/1/boards/{board_id}"
+        params = {"key": TRELLO_API_KEY, "token": TRELLO_TOKEN, "fields": "name"}
+
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        return response.json().get("name", "無名のボード")
+
+    except requests.exceptions.RequestException as e:
+        print(f"ボード情報取得失敗: {board_id} - {str(e)}")
+        return "不明なボード"
+
+
 def get_trello_cards():
     """Trelloからカードリストを取得"""
     try:
@@ -101,6 +116,9 @@ def convert_utc_to_jst(utc_str):
 def create_calendar_event(service, card):
     """Googleカレンダーにイベントを作成"""
     try:
+        # ボード名を取得
+        board_name = get_board_name(card.get("idBoard"))
+
         # 日付情報を取得
         start_date, start_time = convert_utc_to_jst(
             card.get("start") or card.get("due")
@@ -114,7 +132,7 @@ def create_calendar_event(service, card):
 
         # イベントデータを構築
         event = {
-            "summary": f"{card['name']}",
+            "summary": f"[{board_name}] {card['name']}",  # ボード名を追加
             "description": f"TrelloカードID: {card['id']}",
             "start": {
                 "dateTime": f"{start_date}T{start_time or '09:00:00'}",
@@ -129,7 +147,7 @@ def create_calendar_event(service, card):
         # イベントを登録
         service.events().insert(calendarId=CALENDAR_ID, body=event).execute()
 
-        print(f"登録成功: {card['name']}")
+        print(f"登録成功: {board_name} - {card['name']}")
 
     except Exception as e:
         print(f"イベント登録失敗: {card.get('name', '無名のカード')} - {str(e)}")
