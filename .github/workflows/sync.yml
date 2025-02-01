@@ -2,7 +2,7 @@ name: Trello-GCal Sync
 
 on:
   schedule:
-    - cron: "0 6 * * *" # 毎日日本時間15:00に実行
+    - cron: "0 22 * * *" # 毎日日本時間15:00に実行
   workflow_dispatch:
 
 jobs:
