@@ -1,12 +1,9 @@
-# main.py（以下のコードを貼り付け）
 import json
 import os
 from datetime import datetime, timedelta
 
 import requests
-from dotenv import load_dotenv
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
+from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 # 環境変数の読み込み
@@ -20,6 +17,16 @@ LIST_ID = "6799ead0c1d4ba691fabf5ad"  # 対象のリストID
 # Google Calendar設定
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
 CALENDAR_ID = os.getenv("GOOGLE_CALENDAR_ID")
+
+
+def get_google_service():
+    """サービスアカウントで認証"""
+    credentials_json = os.getenv("SERVICE_ACCOUNT_JSON")
+    credentials_info = json.loads(credentials_json)
+    credentials = service_account.Credentials.from_service_account_info(
+        credentials_info, scopes=SCOPES
+    )
+    return build("calendar", "v3", credentials=credentials)
 
 
 def get_board_name(board_id):
@@ -61,7 +68,7 @@ def create_calendar_event(service, card):
         return
 
     event = {
-        "summary": f"{get_board_name(card['idBoard'])} - {card['name']}",
+        "summary": f"{card['name']}",
         "start": {
             "dateTime": f"{start_date}T{start_time or '09:00:00'}",
             "timeZone": "Asia/Tokyo",
@@ -77,28 +84,6 @@ def create_calendar_event(service, card):
         print(f"登録成功: {card['name']}")
     except Exception as e:
         print(f"エラー: {str(e)}")
-
-
-def get_google_credentials():
-    """オフライン認証フローを使用"""
-    credentials_json = os.getenv("GOOGLE_CREDENTIALS")
-    if not credentials_json:
-        raise ValueError("GOOGLE_CREDENTIALSが設定されていません")
-
-    credentials_info = json.loads(credentials_json)
-    flow = InstalledAppFlow.from_client_config(
-        credentials_info,
-        SCOPES,
-        redirect_uri="urn:ietf:wg:oauth:2.0:oob",  # ブラウザ不要のリダイレクトURI
-    )
-
-    # 認証URLを表示
-    auth_url, _ = flow.authorization_url(prompt="consent")
-    print(f"以下のURLにアクセスして認証コードを取得してください: {auth_url}")
-
-    # 認証コードを入力
-    auth_code = input("認証コードを入力: ")
-    return flow.fetch_token(code=auth_code)
 
 
 def main():
