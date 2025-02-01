@@ -6,9 +6,6 @@ import requests
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
-# 環境変数の読み込み
-load_dotenv()
-
 # Trello API設定
 TRELLO_API_KEY = os.getenv("TRELLO_API_KEY")
 TRELLO_TOKEN = os.getenv("TRELLO_TOKEN")
