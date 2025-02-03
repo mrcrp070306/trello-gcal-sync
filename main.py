@@ -72,7 +72,7 @@ def get_trello_cards():
         params = {
             "key": TRELLO_API_KEY,
             "token": TRELLO_TOKEN,
-            "fields": "name,due,start,idBoard",
+            "fields": "name,due,start,idBoard,url",
         }
 
         response = requests.get(url, params=params)
@@ -154,29 +154,96 @@ def create_calendar_event(service, card):
 
 
 # ---------------------------
+# ヘルパー関数
+# ---------------------------
+def get_existing_events(service):
+    """既存のイベントを取得（TrelloカードID付き）"""
+    events = {}
+    try:
+        results = (
+            service.events()
+            .list(
+                calendarId=CALENDAR_ID, maxResults=2500, fields="items(id,description)"
+            )
+            .execute()
+        )
+
+        for item in results.get("items", []):
+            if "TrelloカードID: " in item.get("description", ""):
+                card_id = (
+                    item["description"].split("TrelloカードID: ")[1].split("\n")[0]
+                )
+                events[card_id] = item["id"]
+        return events
+
+    except Exception as e:
+        print(f"既存イベント取得エラー: {str(e)}")
+        return {}
+
+
+def update_or_create_event(service, card, existing_events):
+    """イベントの更新または作成"""
+    card_id = card["id"]
+    event_id = existing_events.get(card_id)
+
+    # 日付情報を取得
+    start_date, start_time = convert_utc_to_jst(card.get("start") or card.get("due"))
+    due_date, due_time = convert_utc_to_jst(card.get("due"))
+
+    if not all([start_date, due_date]):
+        print(f"スキップ: {card.get('name')} - 日付情報が不正です")
+        return
+
+    # イベントデータ
+    event = {
+        "summary": f"{card['name']}",
+        "description": f"TrelloカードID: {card_id}\nURL: {card.get('url', '')}",
+        "start": {
+            "dateTime": f"{start_date}T{start_time or '09:00:00'}",
+            "timeZone": "Asia/Tokyo",
+        },
+        "end": {
+            "dateTime": f"{due_date}T{due_time or '18:00:00'}",
+            "timeZone": "Asia/Tokyo",
+        },
+    }
+
+    try:
+        if event_id:  # 更新処理
+            service.events().update(
+                calendarId=CALENDAR_ID, eventId=event_id, body=event
+            ).execute()
+            print(f"更新成功: {card['name']}")
+        else:  # 新規作成
+            service.events().insert(calendarId=CALENDAR_ID, body=event).execute()
+            print(f"新規登録: {card['name']}")
+
+    except Exception as e:
+        print(f"イベント処理失敗: {card.get('name', '無名のカード')} - {str(e)}")
+
+
+# ---------------------------
 # メイン処理
 # ---------------------------
 def main():
-    """メイン実行関数"""
     try:
-        # サービスを初期化
         calendar_service = get_google_service()
-
-        # Trelloからカードを取得
+        existing_events = get_existing_events(calendar_service)
         cards = get_trello_cards()
 
         if not cards:
             print("同期対象のカードが見つかりませんでした")
             return
 
-        # 各カードを処理
         for card in cards:
-            create_calendar_event(calendar_service, card)
+            update_or_create_event(calendar_service, card, existing_events)
 
-        print("同期処理が正常に完了しました")
+        print(
+            f"処理完了: 新規{len(cards)-len(existing_events)}件 / 更新{len(existing_events)}件"
+        )
 
     except Exception as e:
-        print(f"致命的なエラーが発生しました: {str(e)}")
+        print(f"致命的なエラー: {str(e)}")
         raise
 
 
