@@ -111,49 +111,6 @@ def convert_utc_to_jst(utc_str):
 
 
 # ---------------------------
-# カレンダーイベント作成処理
-# ---------------------------
-def create_calendar_event(service, card):
-    """Googleカレンダーにイベントを作成"""
-    try:
-        # ボード名を取得
-        board_name = get_board_name(card.get("idBoard"))
-
-        # 日付情報を取得
-        start_date, start_time = convert_utc_to_jst(
-            card.get("start") or card.get("due")
-        )
-        due_date, due_time = convert_utc_to_jst(card.get("due"))
-
-        # 必須チェック
-        if not all([start_date, due_date]):
-            print(f"スキップ: {card.get('name')} - 日付情報が不正です")
-            return
-
-        # イベントデータを構築
-        event = {
-            "summary": f"[{board_name}] {card['name']}",  # ボード名を追加
-            "description": f"TrelloカードID: {card['id']}",
-            "start": {
-                "dateTime": f"{start_date}T{start_time or '09:00:00'}",
-                "timeZone": "Asia/Tokyo",
-            },
-            "end": {
-                "dateTime": f"{due_date}T{due_time or '18:00:00'}",
-                "timeZone": "Asia/Tokyo",
-            },
-        }
-
-        # イベントを登録
-        service.events().insert(calendarId=CALENDAR_ID, body=event).execute()
-
-        print(f"登録成功: {board_name} - {card['name']}")
-
-    except Exception as e:
-        print(f"イベント登録失敗: {card.get('name', '無名のカード')} - {str(e)}")
-
-
-# ---------------------------
 # ヘルパー関数
 # ---------------------------
 def get_existing_events(service):
@@ -183,6 +140,7 @@ def get_existing_events(service):
 
 def update_or_create_event(service, card, existing_events):
     """イベントの更新または作成"""
+    board_name = get_board_name(card.get("idBoard"))
     card_id = card["id"]
     event_id = existing_events.get(card_id)
 
@@ -196,7 +154,7 @@ def update_or_create_event(service, card, existing_events):
 
     # イベントデータ
     event = {
-        "summary": f"{card['name']}",
+        "summary": f"[{board_name}] {card['name']}",
         "description": f"TrelloカードID: {card_id}\nURL: {card.get('url', '')}",
         "start": {
             "dateTime": f"{start_date}T{start_time or '09:00:00'}",
